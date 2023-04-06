@@ -1,30 +1,23 @@
 #!/usr/bin/env bash
-# Configure a brand new ubuntu machine to the requirement neeeded
-# for web servers behind a load balancer
-sudo apt-get update
-sudo apt-get install -y nginx
+# Configure nginx web server with custom response header
 
-# configure firewall to allow request through port 80
-sudo ufw allow 'Nginx HTTP'
+INDEX_PAGE="Hello World!"
+ERROR_PAGE="Ceci n'est pas une page - 404"
 
-sudo mkdir -p /var/www/html
+sudo apt-get -y update
+sudo apt-get -y install nginx
 
-# change permissions to allow us to easily create files in this directory
-sudo chmod -R 755 /var/www
+echo "$INDEX_PAGE" | sudo tee /var/www/html/index.nginx-debian.html > /dev/null
+echo "$ERROR_PAGE" | sudo tee /var/www/html/custom_404.html > /dev/null
 
-#  create the index page
-echo 'Hello World!' |sudo tee  /var/www/html/index.html
+# config redirection
+sudo sed -i '/^\sserver_name.*/a \        rewrite ^/redirect_me https://www.youtube.com/watch?v=QH2-TGUlwu4 permanent;' /etc/nginx/sites-available/default
 
-# create a webpage for error 404
-echo "Ceci n'est pas une page" |sudo tee /var/www/html/404.html
+# config custom 404
+sudo sed -i '/^\slocation.*/i \        error_page 404 /custom_404.html;' /etc/nginx/sites-available/default
 
-# code to configure redirect for a single page(/redirect_me) and add header to display hostname
-string_for_replacement="server_name _;\n\tadd_header X-Served-By \$hostname;\n\trewrite ^\/redirect_me https:\/\/www.blog.beingjay.com permanent;"
-sudo sed -i "s/server_name _;/$string_for_replacement/" /etc/nginx/sites-enabled/default
+# config custom response header
+sudo sed -i '/^\slocation.*/i \        add_header X-Served-By $hostname;' /etc/nginx/sites-available/default
 
-# code to configure redirect for 404 error page
-string_for_replacement="listen 80 default_server;\n\terror_page 404 \/404.html;\n\tlocation = \/404.html {\n\t\troot \/var\/www\/html;\n\t\tinternal;\n\t}"
-sudo sed -i "s/listen 80 default_server;/$string_for_replacement/" /etc/nginx/sites-enabled/default
-
-# restart the web server after updating the settings
-sudo service nginx restart
+# run server
+sudo service nginx start
